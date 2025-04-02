@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { fetchMetadata, processVideo } from '../services/api';
+import React, { useState, useEffect } from 'react';
 import './DownloadForm.css';
+import { fetchMetadata, processVideo, getDirectDownloadUrl } from '../services/api';
+import ProgressBar from './ProgressBar';
 
 const DownloadForm = () => {
   const [url, setUrl] = useState('');
-  const [format, setFormat] = useState('mp4');
-  const [quality, setQuality] = useState('720p');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [metadata, setMetadata] = useState(null);
   const [downloadInfo, setDownloadInfo] = useState(null);
+  const [format, setFormat] = useState('video');
+  const [quality, setQuality] = useState('720p');
+  const [videoFormat, setVideoFormat] = useState('mp4');
+  const [audioFormat, setAudioFormat] = useState('mp3');
 
   const handleUrlChange = (e) => {
     setUrl(e.target.value);
@@ -54,23 +57,49 @@ const DownloadForm = () => {
     }
     
     try {
-      setLoading(true);
       setError('');
+      setLoading(true);
       
-      const response = await processVideo(url, format, quality);
+      // Get video info first to determine filename
+      const videoInfo = await processVideo(url, format, quality, videoFormat, audioFormat);
       
-      if (response.error) {
-        setError(response.message);
-      } else {
-        setDownloadInfo(response);
+      if (videoInfo.error) {
+        setError(videoInfo.message);
+        setLoading(false);
+        return;
       }
+      
+      // Set download info for display
+      setDownloadInfo(videoInfo);
+      
+      // Create a direct download link with query parameters
+      const params = new URLSearchParams({
+        url,
+        format,
+        quality,
+        videoFormat,
+        audioFormat
+      });
+      
+      // Create the download URL
+      const downloadUrl = `http://localhost:5000/api/direct-download?${params.toString()}`;
+      
+      // Create a hidden anchor element to trigger download without navigating away
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = `${videoInfo.title}.${format === 'video' ? videoFormat : audioFormat}`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      setLoading(false);
+      
     } catch (err) {
       setError(err.message || 'Failed to process video');
-    } finally {
       setLoading(false);
     }
   };
-
+  
   return (
     <div className="download-form">
       <form onSubmit={handleFetchMetadata}>
@@ -113,12 +142,48 @@ const DownloadForm = () => {
                   onChange={(e) => setFormat(e.target.value)}
                   className="form-control"
                 >
-                  <option value="mp4">Video (MP4)</option>
-                  <option value="mp3">Audio (MP3)</option>
+                  <option value="video">Video</option>
+                  <option value="audio">Audio</option>
                 </select>
               </div>
               
-              {format === 'mp4' && (
+              {format === 'video' && (
+                <div className="form-group">
+                  <label htmlFor="videoFormat">Video Format</label>
+                  <select
+                    id="videoFormat"
+                    value={videoFormat}
+                    onChange={(e) => setVideoFormat(e.target.value)}
+                    className="form-control"
+                  >
+                    {metadata?.formats?.videoFormats?.map((format) => (
+                      <option key={format} value={format}>
+                        {format.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              {format === 'audio' && (
+                <div className="form-group">
+                  <label htmlFor="audioFormat">Audio Format</label>
+                  <select
+                    id="audioFormat"
+                    value={audioFormat}
+                    onChange={(e) => setAudioFormat(e.target.value)}
+                    className="form-control"
+                  >
+                    {metadata?.formats?.audioFormats?.map((format) => (
+                      <option key={format} value={format}>
+                        {format.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              {format === 'video' && (
                 <div className="form-group">
                   <label htmlFor="quality">Quality</label>
                   <select
@@ -153,12 +218,17 @@ const DownloadForm = () => {
           <h3>Your download is ready!</h3>
           <p>
             <a 
-              href={`http://localhost:5000${downloadInfo.downloadUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={`http://localhost:5000/api/direct-download?${new URLSearchParams({
+                url,
+                format,
+                quality,
+                videoFormat,
+                audioFormat
+              }).toString()}`}
+              download={`${downloadInfo.title}.${format === 'video' ? videoFormat : audioFormat}`}
               className="download-link"
             >
-              Download {downloadInfo.title}.{downloadInfo.format}
+              Download {downloadInfo.title}.{format === 'video' ? videoFormat : audioFormat}
             </a>
           </p>
           <p className="note">Note: This download link will expire in 24 hours.</p>

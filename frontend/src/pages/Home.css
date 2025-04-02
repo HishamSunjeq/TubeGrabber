@@ -40,10 +40,10 @@
 }
 
 .feature-card {
-  background-color: white;
+  background-color: var(--feature-bg);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px var(--shadow-color);
   transition: transform 0.3s;
 }
 
@@ -52,12 +52,12 @@
 }
 
 .feature-card h4 {
-  color: #3498db;
+  color: var(--feature-heading);
   margin-bottom: 1rem;
 }
 
 .feature-card p {
-  color: #7f8c8d;
+  color: var(--feature-text);
   line-height: 1.6;
 }
 

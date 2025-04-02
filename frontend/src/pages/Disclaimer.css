@@ -7,25 +7,26 @@
 .disclaimer-page h2 {
   text-align: center;
   margin-bottom: 2rem;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .disclaimer-content {
-  background-color: white;
+  background-color: var(--card-bg-color);
   border-radius: 8px;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px var(--shadow-color);
+  border: 1px solid var(--border-color);
 }
 
 .disclaimer-content h3 {
-  color: #3498db;
+  color: var(--primary-color);
   margin: 1.5rem 0 1rem;
 }
 
 .disclaimer-content p {
   margin-bottom: 1rem;
   line-height: 1.6;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .disclaimer-content ul {
@@ -36,6 +37,7 @@
 .disclaimer-content li {
   margin-bottom: 0.75rem;
   line-height: 1.6;
+  color: var(--text-color);
 }
 
 .disclaimer-content li ul {
@@ -44,5 +46,6 @@
 }
 
 .disclaimer-content strong {
-  color: #2c3e50;
+  color: var(--primary-color);
+  font-weight: 600;
 }

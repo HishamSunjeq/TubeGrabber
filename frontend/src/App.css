@@ -1,3 +1,66 @@
+:root {
+  /* Base theme colors */
+  --primary-color: #4a90e2;
+  --secondary-color: #50c878;
+  --accent-color: #4a90e2;
+  --accent-color-rgb: 74, 144, 226;
+  --accent-hover-color: #3a80d2;
+  --error-color: #e74c3c;
+  --error-color-rgb: 231, 76, 60;
+  --success-color: #2ecc71;
+  --warning-color: #f39c12;
+  --disabled-color: #95a5a6;
+  
+  /* Light theme (default) */
+  --bg-color: #f5f7fa;
+  --text-color: #333333;
+  --card-bg-color: #ffffff;
+  --border-color: #e1e4e8;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --input-bg-color: #ffffff;
+  --header-bg-color: #ffffff;
+  --footer-bg-color: #f5f7fa;
+  
+  /* Feature cards */
+  --feature-card-bg: #ffffff;
+  --feature-card-text: #333333;
+  --feature-card-border: #e1e4e8;
+  --feature-card-shadow: rgba(0, 0, 0, 0.05);
+  
+  /* Dark theme */
+  --dark-bg-color: #1a1a2e;
+  --dark-text-color: #f0f0f0;
+  --dark-card-bg-color: #252541;
+  --dark-border-color: #3a3a5a;
+  --dark-shadow-color: rgba(0, 0, 0, 0.3);
+  --dark-input-bg-color: #2a2a45;
+  --dark-header-bg-color: #252541;
+  --dark-footer-bg-color: #1a1a2e;
+  
+  /* Dark feature cards */
+  --dark-feature-card-bg: #252541;
+  --dark-feature-card-text: #f0f0f0;
+  --dark-feature-card-border: #3a3a5a;
+  --dark-feature-card-shadow: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] {
+  --bg-color: var(--dark-bg-color);
+  --text-color: var(--dark-text-color);
+  --card-bg-color: var(--dark-card-bg-color);
+  --border-color: var(--dark-border-color);
+  --shadow-color: var(--dark-shadow-color);
+  --input-bg-color: var(--dark-input-bg-color);
+  --header-bg-color: var(--dark-header-bg-color);
+  --footer-bg-color: var(--dark-footer-bg-color);
+  
+  /* Feature cards */
+  --feature-card-bg: var(--dark-feature-card-bg);
+  --feature-card-text: var(--dark-feature-card-text);
+  --feature-card-border: var(--dark-feature-card-border);
+  --feature-card-shadow: var(--dark-feature-card-shadow);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -7,8 +70,9 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
-  color: #333;
-  background-color: #f8f9fa;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -29,7 +93,7 @@ main {
 }
 
 a {
-  color: #3498db;
+  color: var(--primary-color);
   text-decoration: none;
 }
 
@@ -40,6 +104,7 @@ a:hover {
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   line-height: 1.3;
+  color: var(--primary-color);
 }
 
 button {

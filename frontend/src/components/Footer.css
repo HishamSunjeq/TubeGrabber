@@ -1,14 +1,14 @@
 .footer {
-  background-color: #f8f9fa;
+  background-color: var(--footer-bg);
   padding: 1.5rem 0;
   text-align: center;
   margin-top: 2rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border-color);
 }
 
 .footer p {
   margin: 0.5rem 0;
-  color: #6c757d;
+  color: var(--footer-text);
 }
 
 .disclaimer-text {

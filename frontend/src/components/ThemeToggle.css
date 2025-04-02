@@ -1,0 +1,42 @@
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  transition: background-color 0.3s, transform 0.2s;
+  background-color: var(--card-bg-color);
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  overflow: visible;
+}
+
+.theme-toggle:hover {
+  background-color: var(--border-color);
+  transform: scale(1.1);
+}
+
+.theme-toggle svg {
+  transition: transform 0.5s ease;
+  width: 24px;
+  height: 24px;
+}
+
+/* Light theme specific styles */
+html[data-theme='light'] .theme-toggle svg {
+  color: #4a90e2;
+}
+
+/* Dark theme specific styles */
+html[data-theme='dark'] .theme-toggle svg {
+  color: #f0f0f0;
+}
+
+.theme-toggle:active svg {
+  transform: rotate(360deg);
+}
