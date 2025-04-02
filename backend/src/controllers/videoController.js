@@ -1,4 +1,4 @@
-const ytdl = require('ytdl-core');
+const ytdlp = require('yt-dlp-exec');
 const fs = require('fs-extra');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -23,23 +23,36 @@ exports.fetchMetadata = async (req, res) => {
       return res.status(400).json({ error: true, message: 'Invalid YouTube URL' });
     }
 
-    const info = await ytdl.getInfo(url);
+    // Get video info using yt-dlp
+    const info = await ytdlp(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      noCallHome: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
+    });
     
     // Extract relevant metadata
     const metadata = {
-      videoId: info.videoDetails.videoId,
-      title: info.videoDetails.title,
-      lengthSeconds: parseInt(info.videoDetails.lengthSeconds),
-      author: info.videoDetails.author.name,
+      videoId: info.id,
+      title: info.title,
+      lengthSeconds: parseInt(info.duration),
+      author: info.uploader,
       formats: {
         video: ['720p', '480p', '360p', '240p', '144p'].filter(quality => 
           info.formats.some(format => 
-            format.qualityLabel && format.qualityLabel.includes(quality)
+            format.height && (format.height === parseInt(quality.replace('p', '')))
           )
         ),
         audio: ['128kbps']
       }
     };
+
+    // If no video formats were found, add default 720p
+    if (metadata.formats.video.length === 0) {
+      metadata.formats.video = ['720p'];
+    }
 
     return res.status(200).json({ error: false, metadata });
   } catch (error) {
@@ -65,8 +78,16 @@ exports.processVideo = async (req, res) => {
     }
 
     // Get video info
-    const info = await ytdl.getInfo(url);
-    const videoTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '');
+    const info = await ytdlp(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      noCallHome: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
+    });
+    
+    const videoTitle = info.title.replace(/[^\w\s]/gi, '');
     const fileId = uuidv4();
     const fileName = `${videoTitle}-${fileId}`;
     
@@ -79,30 +100,31 @@ exports.processVideo = async (req, res) => {
       filePath = path.join(__dirname, `../../uploads/audio/${fileName}.mp3`);
       downloadUrl = `/downloads/audio/${fileName}.mp3`;
       
-      // Download as audio
-      const audioStream = ytdl(url, { 
-        quality: 'highestaudio',
-        filter: 'audioonly'
+      // Download as audio using yt-dlp
+      await ytdlp(url, {
+        extractAudio: true,
+        audioFormat: 'mp3',
+        audioQuality: 2, // 0 is best, 9 is worst
+        output: filePath,
+        noWarnings: true,
+        noCallHome: true,
+        noCheckCertificate: true,
+        preferFreeFormats: true,
+        youtubeSkipDashManifest: true,
       });
       
-      // Convert to MP3 using ffmpeg
-      ffmpeg(audioStream)
-        .audioBitrate(128)
-        .save(filePath)
-        .on('end', () => {
-          console.log(`Audio download completed: ${fileName}.mp3`);
-          
-          // Schedule file deletion after 24 hours
-          setTimeout(() => {
-            fs.remove(filePath)
-              .then(() => console.log(`Deleted file: ${filePath}`))
-              .catch(err => console.error(`Error deleting file: ${filePath}`, err));
-          }, 24 * 60 * 60 * 1000); // 24 hours
-        });
+      console.log(`Audio download completed: ${fileName}.mp3`);
+      
+      // Schedule file deletion after 24 hours
+      setTimeout(() => {
+        fs.remove(filePath)
+          .then(() => console.log(`Deleted file: ${filePath}`))
+          .catch(err => console.error(`Error deleting file: ${filePath}`, err));
+      }, 24 * 60 * 60 * 1000); // 24 hours
       
       return res.status(200).json({ 
         error: false, 
-        message: 'Audio processing started',
+        message: 'Audio processing completed',
         downloadUrl,
         title: videoTitle,
         format: 'mp3'
@@ -113,27 +135,32 @@ exports.processVideo = async (req, res) => {
       downloadUrl = `/downloads/videos/${fileName}.mp4`;
       
       // Get the appropriate format based on quality
-      const videoFormat = ytdl.chooseFormat(info.formats, { 
-        quality: quality === '720p' ? 'highest' : quality 
+      const height = parseInt(quality.replace('p', ''));
+      
+      // Download video using yt-dlp
+      await ytdlp(url, {
+        format: `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`,
+        mergeOutputFormat: 'mp4',
+        output: filePath,
+        noWarnings: true,
+        noCallHome: true,
+        noCheckCertificate: true,
+        preferFreeFormats: true,
+        youtubeSkipDashManifest: true,
       });
       
-      // Download video
-      ytdl(url, { format: videoFormat })
-        .pipe(fs.createWriteStream(filePath))
-        .on('finish', () => {
-          console.log(`Video download completed: ${fileName}.mp4`);
-          
-          // Schedule file deletion after 24 hours
-          setTimeout(() => {
-            fs.remove(filePath)
-              .then(() => console.log(`Deleted file: ${filePath}`))
-              .catch(err => console.error(`Error deleting file: ${filePath}`, err));
-          }, 24 * 60 * 60 * 1000); // 24 hours
-        });
+      console.log(`Video download completed: ${fileName}.mp4`);
+      
+      // Schedule file deletion after 24 hours
+      setTimeout(() => {
+        fs.remove(filePath)
+          .then(() => console.log(`Deleted file: ${filePath}`))
+          .catch(err => console.error(`Error deleting file: ${filePath}`, err));
+      }, 24 * 60 * 60 * 1000); // 24 hours
       
       return res.status(200).json({ 
         error: false, 
-        message: 'Video processing started',
+        message: 'Video processing completed',
         downloadUrl,
         title: videoTitle,
         format: 'mp4'
