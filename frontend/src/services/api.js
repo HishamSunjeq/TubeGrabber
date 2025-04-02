@@ -36,7 +36,38 @@ export const processVideo = async (url, format = 'video', quality = '720p', vide
   }
 };
 
-// Get direct download URL
+// Get download status
+export const getDownloadStatus = async (downloadId) => {
+  try {
+    const response = await api.get(`/download-status/${downloadId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: true, message: 'Network error' };
+  }
+};
+
+// Download file
+export const downloadFile = async (downloadId) => {
+  try {
+    // This will trigger a file download in the browser
+    window.location.href = `${API_URL}/download-file/${downloadId}`;
+    return { error: false };
+  } catch (error) {
+    throw { error: true, message: 'Failed to download file' };
+  }
+};
+
+// Cancel download
+export const cancelDownload = async (downloadId) => {
+  try {
+    const response = await api.post(`/cancel-download/${downloadId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: true, message: 'Network error' };
+  }
+};
+
+// Get direct download URL (legacy method)
 export const getDirectDownloadUrl = (url, format, quality, videoFormat, audioFormat) => {
   return `${API_URL}/direct-download`;
 };

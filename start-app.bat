@@ -69,16 +69,14 @@ REM Start the frontend server in parallel
 echo Starting frontend server...
 start "YouTube Downloader Frontend" cmd /c "cd frontend && npm start"
 
-REM Open the application in the default browser after a short delay
-echo Waiting for servers to initialize...
-timeout /t 8 /nobreak >nul
-echo Opening application in browser...
-start http://localhost:3000
-
+REM Let the React development server open the browser automatically
 echo.
-echo YouTube Downloader Application is now running!
+echo YouTube Downloader Application is starting...
 echo Backend server: http://localhost:5000
 echo Frontend server: http://localhost:3000
+echo.
+echo The application will open automatically in your default browser.
+echo If it doesn't open, navigate to http://localhost:3000 manually.
 echo.
 echo To stop the application, close this window and the server windows.
 echo.

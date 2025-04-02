@@ -93,42 +93,299 @@ exports.processVideo = async (req, res) => {
     const fileId = uuidv4();
     const fileName = `${videoTitle}-${fileId}`;
     
-    // Generate direct download command
-    let ytdlpCommand = '';
-    let outputFormat = '';
+    // Create a unique download ID for tracking
+    const downloadId = uuidv4();
     
-    if (format === 'audio') {
-      // For audio downloads
-      outputFormat = audioFormat;
-      ytdlpCommand = `yt-dlp -x --audio-format ${audioFormat} --audio-quality 0 -o "%(title)s.%(ext)s" "${url}"`;
-    } else {
-      // For video downloads
-      outputFormat = videoFormat;
-      const height = parseInt(quality.replace('p', ''));
-      ytdlpCommand = `yt-dlp -f "bestvideo[height<=${height}]+bestaudio/best[height<=${height}]" --merge-output-format ${videoFormat} -o "%(title)s.%(ext)s" "${url}"`;
+    // Create download directory if it doesn't exist
+    const downloadDir = path.join(__dirname, '../../downloads');
+    await fs.ensureDir(downloadDir);
+    
+    // Define the output file path
+    const extension = format === 'audio' ? audioFormat : videoFormat;
+    const outputPath = path.join(downloadDir, `${fileName}.${extension}`);
+    
+    // Prepare download options
+    const downloadOptions = {
+      format: format,
+      videoFormat: videoFormat,
+      audioFormat: audioFormat,
+      quality: quality,
+      downloadId: downloadId,
+      title: info.title,
+      fileName: `${fileName}.${extension}`,
+      outputPath: outputPath,
+      status: 'queued',
+      progress: 0,
+      url: url,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Store download info in memory (in a production app, use a database)
+    if (!global.activeDownloads) {
+      global.activeDownloads = {};
     }
+    global.activeDownloads[downloadId] = downloadOptions;
     
+    // Start the download process in the background
+    setTimeout(() => {
+      startDownloadProcess(downloadOptions);
+    }, 100);
+    
+    // Return the download ID and info to the client
     return res.status(200).json({ 
       error: false, 
-      message: 'Download command generated',
-      directDownload: true,
-      command: ytdlpCommand,
+      message: 'Download started',
+      downloadId: downloadId,
       title: info.title,
-      format: outputFormat,
-      url: url,
-      quality: quality,
-      downloadOptions: {
-        format: format,
-        videoFormat: videoFormat,
-        audioFormat: audioFormat,
-        quality: quality
-      }
+      format: extension,
+      downloadOptions
     });
   } catch (error) {
     console.error('Error processing video:', error);
     return res.status(500).json({ 
       error: true, 
       message: 'Failed to process video download' 
+    });
+  }
+};
+
+// Function to start the download process
+async function startDownloadProcess(options) {
+  try {
+    const { url, format, quality, videoFormat, audioFormat, outputPath, downloadId } = options;
+    
+    // Update download status
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].status = 'downloading';
+    }
+    
+    // Create yt-dlp arguments
+    let ytdlpArgs = [];
+    
+    if (format === 'audio') {
+      // For audio downloads
+      ytdlpArgs = [
+        '-x',
+        '--audio-format', audioFormat,
+        '--audio-quality', '0',
+        '--no-playlist',
+        '--no-warnings',
+        '--no-check-certificate',
+        '--prefer-free-formats',
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
+        '-o', outputPath,
+        url
+      ];
+    } else {
+      // For video downloads
+      const height = parseInt(quality.replace('p', ''));
+      ytdlpArgs = [
+        '-f', `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`,
+        '--merge-output-format', videoFormat,
+        '--no-playlist',
+        '--no-warnings',
+        '--no-check-certificate',
+        '--prefer-free-formats',
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
+        '-o', outputPath,
+        url
+      ];
+    }
+    
+    // Add progress output for parsing
+    ytdlpArgs.push('--newline');
+    ytdlpArgs.push('--progress-template', '%(progress.downloaded_bytes)s/%(progress.total_bytes)s');
+    
+    // Start the download process
+    const { spawn } = require('child_process');
+    const ytdlpProcess = spawn('yt-dlp', ytdlpArgs);
+    
+    // Track download progress
+    ytdlpProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      
+      // Try to parse progress information
+      try {
+        if (output.includes('/')) {
+          const [downloaded, total] = output.trim().split('/').map(Number);
+          if (!isNaN(downloaded) && !isNaN(total) && total > 0) {
+            const progress = Math.round((downloaded / total) * 100);
+            
+            // Update download progress
+            if (global.activeDownloads && global.activeDownloads[downloadId]) {
+              global.activeDownloads[downloadId].progress = progress;
+              global.activeDownloads[downloadId].downloadedBytes = downloaded;
+              global.activeDownloads[downloadId].totalBytes = total;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error parsing progress:', err);
+      }
+    });
+    
+    ytdlpProcess.stderr.on('data', (data) => {
+      console.error(`yt-dlp stderr: ${data}`);
+    });
+    
+    ytdlpProcess.on('close', (code) => {
+      if (code === 0) {
+        // Download completed successfully
+        if (global.activeDownloads && global.activeDownloads[downloadId]) {
+          global.activeDownloads[downloadId].status = 'completed';
+          global.activeDownloads[downloadId].progress = 100;
+          global.activeDownloads[downloadId].completedAt = new Date().toISOString();
+        }
+        console.log(`Download completed: ${outputPath}`);
+      } else {
+        // Download failed
+        if (global.activeDownloads && global.activeDownloads[downloadId]) {
+          global.activeDownloads[downloadId].status = 'failed';
+          global.activeDownloads[downloadId].error = `Process exited with code ${code}`;
+        }
+        console.error(`yt-dlp process exited with code ${code}`);
+      }
+    });
+    
+    // Store the process reference for potential cancellation
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].process = ytdlpProcess;
+    }
+    
+  } catch (error) {
+    console.error('Error starting download process:', error);
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].status = 'failed';
+      global.activeDownloads[downloadId].error = error.message;
+    }
+  }
+}
+
+// Get download status
+exports.getDownloadStatus = async (req, res) => {
+  try {
+    const { downloadId } = req.params;
+    
+    if (!downloadId) {
+      return res.status(400).json({ error: true, message: 'Download ID is required' });
+    }
+    
+    // Check if download exists
+    if (!global.activeDownloads || !global.activeDownloads[downloadId]) {
+      return res.status(404).json({ error: true, message: 'Download not found' });
+    }
+    
+    // Return download status
+    return res.status(200).json({ 
+      error: false, 
+      download: global.activeDownloads[downloadId]
+    });
+    
+  } catch (error) {
+    console.error('Error getting download status:', error);
+    return res.status(500).json({ 
+      error: true, 
+      message: 'Failed to get download status' 
+    });
+  }
+};
+
+// Download file
+exports.downloadFile = async (req, res) => {
+  try {
+    const { downloadId } = req.params;
+    
+    if (!downloadId) {
+      return res.status(400).json({ error: true, message: 'Download ID is required' });
+    }
+    
+    // Check if download exists
+    if (!global.activeDownloads || !global.activeDownloads[downloadId]) {
+      return res.status(404).json({ error: true, message: 'Download not found' });
+    }
+    
+    const download = global.activeDownloads[downloadId];
+    
+    // Check if download is completed
+    if (download.status !== 'completed') {
+      return res.status(400).json({ 
+        error: true, 
+        message: `Download is not ready (status: ${download.status})` 
+      });
+    }
+    
+    // Check if file exists
+    if (!await fs.pathExists(download.outputPath)) {
+      return res.status(404).json({ error: true, message: 'Download file not found' });
+    }
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(download.fileName)}"`);
+    
+    // Stream the file to the client
+    const fileStream = fs.createReadStream(download.outputPath);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    return res.status(500).json({ 
+      error: true, 
+      message: 'Failed to download file' 
+    });
+  }
+};
+
+// Cancel download
+exports.cancelDownload = async (req, res) => {
+  try {
+    const { downloadId } = req.params;
+    
+    if (!downloadId) {
+      return res.status(400).json({ error: true, message: 'Download ID is required' });
+    }
+    
+    // Check if download exists
+    if (!global.activeDownloads || !global.activeDownloads[downloadId]) {
+      return res.status(404).json({ error: true, message: 'Download not found' });
+    }
+    
+    const download = global.activeDownloads[downloadId];
+    
+    // Kill the download process if it's running
+    if (download.process && typeof download.process.kill === 'function') {
+      download.process.kill();
+    }
+    
+    // Update download status
+    download.status = 'cancelled';
+    download.cancelledAt = new Date().toISOString();
+    
+    // Clean up the partial file if it exists
+    try {
+      if (await fs.pathExists(download.outputPath)) {
+        await fs.unlink(download.outputPath);
+      }
+    } catch (err) {
+      console.error('Error deleting partial file:', err);
+    }
+    
+    return res.status(200).json({ 
+      error: false, 
+      message: 'Download cancelled successfully' 
+    });
+    
+  } catch (error) {
+    console.error('Error cancelling download:', error);
+    return res.status(500).json({ 
+      error: true, 
+      message: 'Failed to cancel download' 
     });
   }
 };
