@@ -1,83 +1,74 @@
 @echo off
+echo ===================================================
 echo Starting YouTube Downloader Application...
+echo ===================================================
 echo.
-
-REM Check if Node.js is installed
-where node >nul 2>nul
-if %ERRORLEVEL% neq 0 (
-    echo Node.js is not installed or not in PATH.
-    echo Please install Node.js from https://nodejs.org/
-    echo.
-    pause
-    exit /b 1
-)
-
-REM Check if Python is installed (needed for yt-dlp)
-where python >nul 2>nul
-if %ERRORLEVEL% neq 0 (
-    echo Python is not installed or not in PATH.
-    echo Please install Python from https://www.python.org/downloads/
-    echo.
-    pause
-    exit /b 1
-)
-
-REM Check if yt-dlp is installed
-where yt-dlp >nul 2>nul
-if %ERRORLEVEL% neq 0 (
-    echo yt-dlp is not installed or not in PATH.
-    echo Installing yt-dlp...
-    pip install yt-dlp
-    if %ERRORLEVEL% neq 0 (
-        echo Failed to install yt-dlp. Please install it manually with:
-        echo pip install yt-dlp
-        echo.
-        pause
-        exit /b 1
-    )
-)
 
 REM Kill any existing Node.js processes that might be running our servers
 echo Stopping any existing servers...
 taskkill /F /FI "WINDOWTITLE eq YouTube Downloader*" >nul 2>nul
 
-REM Check if backend node_modules exists
-if not exist "backend\node_modules" (
-    echo Installing backend dependencies...
-    cd backend
-    npm install
-    cd ..
-) else (
-    echo Backend dependencies already installed, skipping npm install...
+REM Kill any existing Node.js processes on ports 3000 and 5000
+FOR /F "tokens=5" %%P IN ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') DO (
+    taskkill /F /PID %%P >nul 2>nul
+)
+FOR /F "tokens=5" %%P IN ('netstat -ano ^| findstr ":5000" ^| findstr "LISTENING"') DO (
+    taskkill /F /PID %%P >nul 2>nul
 )
 
-REM Check if frontend node_modules exists
-if not exist "frontend\node_modules" (
-    echo Installing frontend dependencies...
-    cd frontend
-    npm install
-    cd ..
-) else (
-    echo Frontend dependencies already installed, skipping npm install...
-)
+REM Create a temporary VBS script to run the backend invisibly
+echo Creating launcher scripts...
+echo Set WshShell = CreateObject("WScript.Shell") > "%TEMP%\run_backend.vbs"
+echo WshShell.Run "cmd /c cd %CD%\backend && npm start", 0, false >> "%TEMP%\run_backend.vbs"
 
-REM Start the backend server
+REM Create a temporary VBS script to run the frontend invisibly without opening a browser
+echo Set WshShell = CreateObject("WScript.Shell") > "%TEMP%\run_frontend.vbs"
+echo WshShell.Run "cmd /c cd %CD%\frontend && set BROWSER=none&& npm start", 0, false >> "%TEMP%\run_frontend.vbs"
+
+REM Start the backend server using the VBS script (completely hidden)
 echo Starting backend server...
-start "YouTube Downloader Backend" cmd /c "cd backend && npm run dev"
+cscript //nologo "%TEMP%\run_backend.vbs"
 
-REM Start the frontend server in parallel
-echo Starting frontend server...
-start "YouTube Downloader Frontend" cmd /c "cd frontend && npm start"
+REM Wait for backend to initialize
+echo Waiting for servers to initialize...
+timeout /t 5 /nobreak > nul
 
-REM Let the React development server open the browser automatically
+REM Start the frontend using the VBS script (completely hidden)
+echo Starting frontend...
+cscript //nologo "%TEMP%\run_frontend.vbs"
+
+REM Wait for frontend to initialize
+timeout /t 3 /nobreak > nul
+
+REM Open the browser manually (only once)
+echo Opening application in browser...
+start http://localhost:3000
+
 echo.
-echo YouTube Downloader Application is starting...
-echo Backend server: http://localhost:5000
-echo Frontend server: http://localhost:3000
+echo YouTube Downloader is running!
 echo.
-echo The application will open automatically in your default browser.
-echo If it doesn't open, navigate to http://localhost:3000 manually.
+echo The application is now open in your browser.
 echo.
-echo To stop the application, close this window and the server windows.
+echo Press any key to stop the application...
+pause > nul
+
+REM When the user presses a key, terminate all processes
 echo.
-pause
+echo Shutting down YouTube Downloader...
+
+REM Kill processes by port
+FOR /F "tokens=5" %%P IN ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') DO (
+    taskkill /F /PID %%P >nul 2>nul
+)
+FOR /F "tokens=5" %%P IN ('netstat -ano ^| findstr ":5000" ^| findstr "LISTENING"') DO (
+    taskkill /F /PID %%P >nul 2>nul
+)
+
+REM Clean up temporary files
+del "%TEMP%\run_backend.vbs" >nul 2>nul
+del "%TEMP%\run_frontend.vbs" >nul 2>nul
+
+echo.
+echo YouTube Downloader has been shut down.
+echo.
+timeout /t 2 > nul
