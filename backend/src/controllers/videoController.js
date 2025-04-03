@@ -475,10 +475,10 @@ exports.directDownload = async (req, res) => {
         '--no-warnings',
         '--no-check-certificate',
         '--prefer-free-formats',
-        '--buffer-size', '64M', // Increased buffer size for faster downloads
-        '--concurrent-fragments', '8', // Download multiple fragments at once
-        '--downloader', 'aria2c', // Use aria2c for faster downloads if available
-        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"', // aria2c optimization
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
         '-o', '-', // Output to stdout
         url
       ];
@@ -492,10 +492,10 @@ exports.directDownload = async (req, res) => {
         '--no-warnings',
         '--no-check-certificate',
         '--prefer-free-formats',
-        '--buffer-size', '64M', // Increased buffer size for faster downloads
-        '--concurrent-fragments', '8', // Download multiple fragments at once
-        '--downloader', 'aria2c', // Use aria2c for faster downloads if available
-        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"', // aria2c optimization
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
         '-o', '-', // Output to stdout
         url
       ];
@@ -507,8 +507,13 @@ exports.directDownload = async (req, res) => {
     
     // Set up a progress tracker
     let downloadedBytes = 0;
+    let lastLoggedBytes = 0;
     const progressInterval = setInterval(() => {
-      console.log(`Downloaded: ${downloadedBytes} bytes`);
+      // Only log if there's actual progress (bytes have increased)
+      if (downloadedBytes > lastLoggedBytes) {
+        console.log(`Downloaded: ${downloadedBytes} bytes`);
+        lastLoggedBytes = downloadedBytes;
+      }
     }, 1000);
     
     // Pipe the output to the response with a transform stream to track progress

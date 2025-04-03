@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getDownloadStatus, downloadFile, cancelDownload } from '../services/api';
 import './DownloadManager.css';
 
-const DownloadManager = ({ downloadId, onComplete }) => {
+const DownloadManager = ({ downloadId, onComplete, onReset }) => {
   const [downloadStatus, setDownloadStatus] = useState(null);
   const [error, setError] = useState('');
   const [pollingInterval, setPollingInterval] = useState(null);
@@ -81,6 +81,13 @@ const DownloadManager = ({ downloadId, onComplete }) => {
       }
     } catch (err) {
       setError(err.message || 'Failed to cancel download');
+    }
+  };
+
+  // Handle reset button click
+  const handleReset = () => {
+    if (onReset) {
+      onReset();
     }
   };
 
@@ -170,9 +177,16 @@ const DownloadManager = ({ downloadId, onComplete }) => {
               className="cancel-button"
               onClick={handleCancel}
             >
-              Cancel
+              Stop Download
             </button>
           )}
+          
+          <button 
+            className="reset-button"
+            onClick={handleReset}
+          >
+            Try Different Format
+          </button>
         </div>
       </div>
     </div>

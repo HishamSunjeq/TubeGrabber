@@ -75,6 +75,13 @@ const DownloadForm = () => {
       setLoading(false);
     }
   };
+
+  // Handle reset to go back to selection
+  const handleReset = () => {
+    // Keep the metadata but clear the download ID
+    setDownloadId(null);
+    setError('');
+  };
   
   return (
     <div className="download-form">
@@ -196,6 +203,7 @@ const DownloadForm = () => {
             // Optional: You can handle download completion here if needed
             console.log('Download completed:', download);
           }}
+          onReset={handleReset}
         />
       )}
     </div>
