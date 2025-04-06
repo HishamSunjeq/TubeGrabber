@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: tubegrabber-api
+    env: node
+    rootDirectory: backend
+    buildCommand: |
+      sudo apt-get update && \
+      sudo apt-get install -y aria2 ffmpeg curl && \
+      sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+      sudo chmod a+rx /usr/local/bin/yt-dlp && \
+      rm -f package-lock.json && \
+      npm install && \
+      npm ci
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
