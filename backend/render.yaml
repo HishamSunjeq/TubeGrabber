@@ -10,8 +10,7 @@ services:
       sudo chmod a+rx /usr/local/bin/yt-dlp && \
       rm -f yarn.lock && \
       rm -f package-lock.json && \
-      npm config set legacy-peer-deps true && \
-      npm install --no-package-lock && \
+      npm install --no-package-lock --legacy-peer-deps && \
       mkdir -p uploads/videos uploads/audio
     startCommand: npm start
     envVars:
