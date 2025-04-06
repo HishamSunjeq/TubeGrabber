@@ -2,6 +2,9 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
@@ -20,7 +23,7 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "uuid": "^9.0.1",
-    "yt-dlp-exec": "^1.1.2"
+    "yt-dlp-exec": "^1.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

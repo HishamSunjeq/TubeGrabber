@@ -8,18 +8,14 @@ services:
       curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
       chmod a+rx /usr/local/bin/yt-dlp && \
       apt-get install -y aria2 ffmpeg && \
-      npm install
+      rm -f yarn.lock && \
+      npm ci
     startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
-    buildFilter:
-      paths:
-      - src/**
-      - package.json
-      - package-lock.json
     disk:
       name: uploads
       mountPath: /opt/render/project/src/uploads
