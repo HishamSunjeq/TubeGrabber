@@ -8,15 +8,19 @@ services:
       sudo apt-get install -y aria2 ffmpeg curl && \
       sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
       sudo chmod a+rx /usr/local/bin/yt-dlp && \
+      rm -f yarn.lock && \
       rm -f package-lock.json && \
-      npm install && \
-      npm ci
-    startCommand: node src/index.js
+      npm config set legacy-peer-deps true && \
+      npm install --no-package-lock && \
+      mkdir -p uploads/videos uploads/audio
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: NPM_CONFIG_PACKAGE_MANAGER
+        value: npm
     disk:
       name: uploads
       mountPath: /opt/render/project/src/uploads
