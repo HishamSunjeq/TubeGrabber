@@ -204,15 +204,6 @@ const DownloadManager = ({ downloadId, onComplete, onReset }) => {
             </button>
           )}
           
-          {downloadStatus.status === 'completed' && isPlaylist && (
-            <button 
-              className="open-folder-button"
-              onClick={() => window.open(`file://${downloadStatus.outputPath}`)}
-            >
-              Open Folder
-            </button>
-          )}
-          
           {['queued', 'downloading'].includes(downloadStatus.status) && (
             <button 
               className="cancel-button"

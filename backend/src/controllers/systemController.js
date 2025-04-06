@@ -71,25 +71,43 @@ exports.openDownloadFolder = async (req, res) => {
     const config = fs.readJsonSync(CONFIG_FILE);
     const downloadPath = config.downloadPath;
     
+    console.log('Attempting to open folder:', downloadPath);
+    
     if (!fs.existsSync(downloadPath)) {
-      return res.status(400).json({ error: true, message: 'Download folder does not exist' });
+      // If the folder doesn't exist, create it
+      try {
+        fs.ensureDirSync(downloadPath);
+        console.log('Created download folder:', downloadPath);
+      } catch (err) {
+        console.error('Error creating download folder:', err);
+        return res.status(500).json({ error: true, message: 'Failed to create download folder' });
+      }
     }
     
     // Open the folder using the default file explorer
+    let command = '';
     if (process.platform === 'win32') {
-      exec(`explorer "${downloadPath}"`);
+      command = `explorer "${downloadPath}"`;
     } else if (process.platform === 'darwin') {
-      exec(`open "${downloadPath}"`);
+      command = `open "${downloadPath}"`;
     } else {
-      exec(`xdg-open "${downloadPath}"`);
+      command = `xdg-open "${downloadPath}"`;
     }
     
-    return res.json({
-      success: true,
-      message: 'Download folder opened'
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error executing command:', error);
+        console.error('Command stderr:', stderr);
+        return res.status(500).json({ error: true, message: `Failed to open download folder: ${error.message}` });
+      }
+      
+      return res.json({
+        success: true,
+        message: 'Download folder opened'
+      });
     });
   } catch (err) {
-    console.error('Error opening download folder:', err);
-    return res.status(500).json({ error: true, message: 'Failed to open download folder' });
+    console.error('Error reading config:', err);
+    return res.status(500).json({ error: true, message: 'Failed to read download path configuration' });
   }
 };

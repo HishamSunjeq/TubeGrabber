@@ -151,21 +151,39 @@ const DownloadForm = () => {
               </div>
               
               {format === 'video' && (
-                <div className="form-group">
-                  <label htmlFor="videoFormat">Video Format</label>
-                  <select
-                    id="videoFormat"
-                    value={videoFormat}
-                    onChange={(e) => setVideoFormat(e.target.value)}
-                    className="form-control"
-                  >
-                    {metadata?.formats?.videoFormats?.map((format) => (
-                      <option key={format} value={format}>
-                        {format.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div className="form-group">
+                    <label htmlFor="videoFormat">Video Format</label>
+                    <select
+                      id="videoFormat"
+                      value={videoFormat}
+                      onChange={(e) => setVideoFormat(e.target.value)}
+                      className="form-control"
+                    >
+                      {metadata?.formats?.videoFormats?.map((format) => (
+                        <option key={format} value={format}>
+                          {format.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="quality">Quality</label>
+                    <select
+                      id="quality"
+                      value={quality}
+                      onChange={(e) => setQuality(e.target.value)}
+                      className="form-control"
+                    >
+                      {metadata.formats.video.map((q) => (
+                        <option key={q} value={q}>
+                          {q}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
               
               {format === 'audio' && (
@@ -180,24 +198,6 @@ const DownloadForm = () => {
                     {metadata?.formats?.audioFormats?.map((format) => (
                       <option key={format} value={format}>
                         {format.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              
-              {format === 'video' && (
-                <div className="form-group">
-                  <label htmlFor="quality">Quality</label>
-                  <select
-                    id="quality"
-                    value={quality}
-                    onChange={(e) => setQuality(e.target.value)}
-                    className="form-control"
-                  >
-                    {metadata.formats.video.map((q) => (
-                      <option key={q} value={q}>
-                        {q}
                       </option>
                     ))}
                   </select>
