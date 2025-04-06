@@ -123,6 +123,7 @@ const DownloadManager = ({ downloadId, onComplete, onReset }) => {
   };
 
   const statusInfo = getStatusInfo();
+  const isPlaylist = downloadStatus.isPlaylist;
 
   return (
     <div className="download-manager">
@@ -132,6 +133,16 @@ const DownloadManager = ({ downloadId, onComplete, onReset }) => {
       
       <div className="download-info">
         <p className="file-name">{downloadStatus.title}</p>
+        
+        {isPlaylist && (
+          <p className="playlist-info">
+            Playlist • {downloadStatus.playlistCount || 'Unknown'} videos
+            {downloadStatus.currentVideo && downloadStatus.totalVideos && (
+              <span> • Video {downloadStatus.currentVideo} of {downloadStatus.totalVideos}</span>
+            )}
+          </p>
+        )}
+        
         <p className="file-format">Format: {downloadStatus.format === 'audio' ? 'Audio' : 'Video'} ({downloadStatus.format === 'audio' ? downloadStatus.audioFormat : `${downloadStatus.quality} ${downloadStatus.videoFormat}`})</p>
         
         <div className="status-row">
@@ -153,7 +164,28 @@ const DownloadManager = ({ downloadId, onComplete, onReset }) => {
                 ` ${formatFileSize(downloadStatus.downloadedBytes)} of ${formatFileSize(downloadStatus.totalBytes)}` : 
                 ' Calculating...'}
             </div>
+            
+            {isPlaylist && downloadStatus.videos && downloadStatus.currentVideo && (
+              <div className="playlist-progress">
+                <h4>Current Video: {downloadStatus.videos[downloadStatus.currentVideo - 1]?.title || `Video ${downloadStatus.currentVideo}`}</h4>
+                <div className="video-progress-container">
+                  <div 
+                    className="video-progress-bar" 
+                    style={{ width: `${downloadStatus.videos[downloadStatus.currentVideo - 1]?.progress || 0}%` }}
+                  ></div>
+                </div>
+                <div className="video-progress-text">
+                  {downloadStatus.videos[downloadStatus.currentVideo - 1]?.progress || 0}%
+                </div>
+              </div>
+            )}
           </>
+        )}
+        
+        {isPlaylist && downloadStatus.status === 'completed' && (
+          <div className="playlist-completed">
+            <p>All videos have been downloaded to the playlist folder.</p>
+          </div>
         )}
         
         {downloadStatus.status === 'failed' && downloadStatus.error && (
@@ -163,12 +195,21 @@ const DownloadManager = ({ downloadId, onComplete, onReset }) => {
         )}
         
         <div className="action-buttons">
-          {downloadStatus.status === 'completed' && (
+          {downloadStatus.status === 'completed' && !isPlaylist && (
             <button 
               className="download-button"
               onClick={handleDownload}
             >
               Download Now
+            </button>
+          )}
+          
+          {downloadStatus.status === 'completed' && isPlaylist && (
+            <button 
+              className="open-folder-button"
+              onClick={() => window.open(`file://${downloadStatus.outputPath}`)}
+            >
+              Open Folder
             </button>
           )}
           

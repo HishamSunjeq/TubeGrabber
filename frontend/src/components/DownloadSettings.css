@@ -1,0 +1,131 @@
+.download-settings {
+  position: relative;
+  margin: 20px 0;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.settings-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5em;
+  padding: 5px;
+}
+
+.locate-folder-btn {
+  background-color: var(--secondary-color, #6c757d);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.locate-folder-btn:hover:not(:disabled) {
+  background-color: var(--secondary-hover, #5a6268);
+}
+
+.locate-folder-btn:disabled {
+  background-color: var(--disabled-bg);
+  cursor: not-allowed;
+}
+
+.settings-panel {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 10px;
+}
+
+.setting-group {
+  margin-bottom: 15px;
+}
+
+.setting-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-color);
+}
+
+.path-input-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.download-path-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+}
+
+.download-path-input:disabled {
+  background-color: var(--disabled-bg);
+  cursor: not-allowed;
+}
+
+.save-btn, .browse-btn {
+  padding: 8px 16px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-btn:hover:not(:disabled), .browse-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.save-btn:disabled, .browse-btn:disabled {
+  background-color: var(--disabled-bg);
+  cursor: not-allowed;
+}
+
+.browse-btn {
+  background-color: var(--secondary-color, #6c757d);
+}
+
+.browse-btn:hover:not(:disabled) {
+  background-color: var(--secondary-hover, #5a6268);
+}
+
+.message {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.message.success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+}
+
+.message.error {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+}
+
+.message.info {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+}

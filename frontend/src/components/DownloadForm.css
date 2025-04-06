@@ -149,6 +149,54 @@ button:disabled {
   color: var(--footer-text);
 }
 
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 15px;
+}
+
+.form-header h2 {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.url-input-container {
+  margin-bottom: 20px;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 10px;
+}
+
+.input-with-button .form-control {
+  flex: 1;
+}
+
+.input-with-button .fetch-btn {
+  white-space: nowrap;
+}
+
+.playlist-metadata {
+  margin-bottom: 15px;
+}
+
+.playlist-notice {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: rgba(255, 193, 7, 0.1);
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+}
+
+.playlist-notice p {
+  margin: 0;
+  color: #856404;
+}
+
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

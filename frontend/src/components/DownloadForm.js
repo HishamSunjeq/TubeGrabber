@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './DownloadForm.css';
 import { fetchMetadata, processVideo } from '../services/api';
 import DownloadManager from './DownloadManager';
+import axios from 'axios';
+
+const API_URL = 'http://localhost:5000/api';
 
 const DownloadForm = () => {
   const [url, setUrl] = useState('');
@@ -85,26 +88,33 @@ const DownloadForm = () => {
   
   return (
     <div className="download-form">
+      <div className="form-header">
+        <h2>YouTube Downloader</h2>
+      </div>
+      
       <form onSubmit={handleFetchMetadata}>
-        <div className="form-group">
-          <label htmlFor="url">YouTube URL</label>
-          <input
-            type="text"
-            id="url"
-            value={url}
-            onChange={handleUrlChange}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="form-control"
-          />
+        <div className="url-input-container">
+          <div className="form-group">
+            <label htmlFor="url">YouTube URL</label>
+            <div className="input-with-button">
+              <input
+                type="text"
+                id="url"
+                value={url}
+                onChange={handleUrlChange}
+                placeholder="https://www.youtube.com/watch?v=... or https://music.youtube.com/playlist?list=..."
+                className="form-control"
+              />
+              <button 
+                type="submit" 
+                className="btn btn-primary fetch-btn"
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Go'}
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <button 
-          type="submit" 
-          className="btn btn-primary"
-          disabled={loading}
-        >
-          {loading ? 'Loading...' : 'Fetch Video Info'}
-        </button>
       </form>
       
       {error && <div className="error-message">{error}</div>}
@@ -112,8 +122,18 @@ const DownloadForm = () => {
       {metadata && !downloadId && (
         <div className="metadata-section">
           <h3>{metadata.title}</h3>
-          <p>Duration: {Math.floor(metadata.lengthSeconds / 60)}:{(metadata.lengthSeconds % 60).toString().padStart(2, '0')}</p>
-          <p>By: {metadata.author}</p>
+          
+          {metadata.isPlaylist ? (
+            <div className="playlist-metadata">
+              <p>Playlist • {metadata.playlistCount || 'Unknown'} videos</p>
+              <p>By: {metadata.author}</p>
+            </div>
+          ) : (
+            <>
+              <p>Duration: {Math.floor(metadata.lengthSeconds / 60)}:{(metadata.lengthSeconds % 60).toString().padStart(2, '0')}</p>
+              <p>By: {metadata.author}</p>
+            </>
+          )}
           
           <form onSubmit={handleDownload}>
             <div className="form-row">
@@ -185,12 +205,20 @@ const DownloadForm = () => {
               )}
             </div>
             
+            {metadata.isPlaylist && (
+              <div className="playlist-notice">
+                <p>
+                  <strong>Note:</strong> This will download all videos in the playlist to a folder named after the playlist.
+                </p>
+              </div>
+            )}
+            
             <button 
               type="submit" 
               className="btn btn-success"
               disabled={loading}
             >
-              {loading ? 'Processing...' : 'Download'}
+              {loading ? 'Processing...' : metadata.isPlaylist ? 'Download Playlist' : 'Download Video'}
             </button>
           </form>
         </div>
@@ -199,11 +227,7 @@ const DownloadForm = () => {
       {downloadId && (
         <DownloadManager 
           downloadId={downloadId} 
-          onComplete={(download) => {
-            // Optional: You can handle download completion here if needed
-            console.log('Download completed:', download);
-          }}
-          onReset={handleReset}
+          onReset={handleReset} 
         />
       )}
     </div>

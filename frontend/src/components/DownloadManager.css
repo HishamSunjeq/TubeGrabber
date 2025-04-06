@@ -24,6 +24,13 @@
   color: var(--text-primary);
 }
 
+.playlist-info {
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-style: italic;
+}
+
 .file-format {
   color: var(--text-secondary);
   margin-bottom: 15px;
@@ -66,6 +73,48 @@
   margin-bottom: 15px;
 }
 
+.playlist-progress {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.playlist-progress h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.video-progress-container {
+  height: 6px;
+  background-color: rgba(52, 152, 219, 0.2);
+  border-radius: 3px;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+
+.video-progress-bar {
+  height: 100%;
+  background-color: #2ecc71;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.video-progress-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.playlist-completed {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: rgba(46, 204, 113, 0.1);
+  border-radius: 4px;
+  color: #2ecc71;
+}
+
 .error-message {
   color: #e74c3c;
   margin-bottom: 15px;
@@ -87,7 +136,7 @@
   margin-top: 15px;
 }
 
-.download-button {
+.download-button, .open-folder-button {
   background-color: #2ecc71;
   color: white;
   border: none;
@@ -98,7 +147,7 @@
   transition: background-color 0.2s;
 }
 
-.download-button:hover {
+.download-button:hover, .open-folder-button:hover {
   background-color: #27ae60;
 }
 

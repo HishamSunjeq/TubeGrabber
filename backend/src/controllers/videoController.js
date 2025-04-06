@@ -6,8 +6,14 @@ const ffmpeg = require('fluent-ffmpeg');
 
 // Utility function to validate YouTube URL
 const isValidYoutubeUrl = (url) => {
-  const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
+  // Updated regex to include music.youtube.com and playlist URLs
+  const pattern = /^(https?:\/\/)?(www\.|music\.)?(youtube\.com|youtu\.be)\/(.+)$/;
   return pattern.test(url);
+};
+
+// Utility function to check if URL is a playlist
+const isPlaylistUrl = (url) => {
+  return url.includes('playlist') || url.includes('list=');
 };
 
 // Fetch metadata for a YouTube video
@@ -23,25 +29,42 @@ exports.fetchMetadata = async (req, res) => {
       return res.status(400).json({ error: true, message: 'Invalid YouTube URL' });
     }
 
-    // Get video info using yt-dlp
-    const info = await ytdlp(url, {
+    // Check if URL is a playlist
+    const isPlaylist = isPlaylistUrl(url);
+
+    // Create options for yt-dlp
+    const ytdlpOptions = {
       dumpSingleJson: true,
       noWarnings: true,
       noCallHome: true,
       noCheckCertificate: true,
       preferFreeFormats: true,
       youtubeSkipDashManifest: true,
-    });
+    };
+
+    // Add playlist-specific options
+    if (isPlaylist) {
+      // For playlists, we need to extract the first entry for preview
+      ytdlpOptions.flatPlaylist = true;
+      ytdlpOptions.playlistItems = '1';
+    } else {
+      // For single videos, we don't want playlist extraction
+      ytdlpOptions.noPlaylist = true;
+    }
+
+    // Get video/playlist info using yt-dlp
+    const info = await ytdlp(url, ytdlpOptions);
     
     // Extract relevant metadata
     const metadata = {
       videoId: info.id,
       title: info.title,
-      lengthSeconds: parseInt(info.duration),
-      author: info.uploader,
+      lengthSeconds: parseInt(info.duration || 0),
+      author: info.uploader || info.channel || 'Unknown',
+      isPlaylist: isPlaylist,
       formats: {
         video: ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p'].filter(quality => 
-          info.formats.some(format => 
+          info.formats && info.formats.some(format => 
             format.height && (format.height === parseInt(quality.replace('p', '')))
           )
         ),
@@ -50,6 +73,35 @@ exports.fetchMetadata = async (req, res) => {
         audioFormats: ['mp3', 'aac', 'm4a', 'opus', 'wav']
       }
     };
+
+    // Add playlist-specific metadata if applicable
+    if (isPlaylist) {
+      // For YouTube Music playlists
+      metadata.playlistId = info.playlist_id || info.id;
+      metadata.playlistTitle = info.playlist_title || info.title;
+      
+      // Get playlist count - for YouTube Music we might need a separate call
+      if (url.includes('music.youtube.com')) {
+        try {
+          // Make a separate call to get playlist info
+          const playlistInfo = await ytdlp(url, {
+            dumpSingleJson: true,
+            flatPlaylist: true,
+            skipDownload: true,
+            noWarnings: true,
+            noCallHome: true,
+            noCheckCertificate: true,
+          });
+          
+          metadata.playlistCount = playlistInfo.entries ? playlistInfo.entries.length : 'Unknown';
+        } catch (err) {
+          console.error('Error getting playlist count:', err);
+          metadata.playlistCount = 'Unknown';
+        }
+      } else {
+        metadata.playlistCount = info.playlist_count || 'Unknown';
+      }
+    }
 
     // If no video formats were found, add default formats
     if (metadata.formats.video.length === 0) {
@@ -79,19 +131,30 @@ exports.processVideo = async (req, res) => {
       return res.status(400).json({ error: true, message: 'Invalid YouTube URL' });
     }
 
-    // Get video info
-    const info = await ytdlp(url, {
+    // Check if URL is a playlist
+    const isPlaylist = isPlaylistUrl(url);
+
+    // Create options for yt-dlp
+    const ytdlpOptions = {
       dumpSingleJson: true,
       noWarnings: true,
       noCallHome: true,
       noCheckCertificate: true,
       preferFreeFormats: true,
       youtubeSkipDashManifest: true,
-    });
-    
-    const videoTitle = info.title.replace(/[^\w\s]/gi, '');
-    const fileId = uuidv4();
-    const fileName = `${videoTitle}-${fileId}`;
+    };
+
+    // Add playlist-specific options
+    if (isPlaylist) {
+      // For playlists, we need to get info about all entries
+      ytdlpOptions.flatPlaylist = true;
+    } else {
+      // For single videos, we don't want playlist extraction
+      ytdlpOptions.noPlaylist = true;
+    }
+
+    // Get video/playlist info
+    const info = await ytdlp(url, ytdlpOptions);
     
     // Create a unique download ID for tracking
     const downloadId = uuidv4();
@@ -100,46 +163,120 @@ exports.processVideo = async (req, res) => {
     const downloadDir = path.join(__dirname, '../../downloads');
     await fs.ensureDir(downloadDir);
     
-    // Define the output file path
-    const extension = format === 'audio' ? audioFormat : videoFormat;
-    const outputPath = path.join(downloadDir, `${fileName}.${extension}`);
-    
-    // Prepare download options
-    const downloadOptions = {
-      format: format,
-      videoFormat: videoFormat,
-      audioFormat: audioFormat,
-      quality: quality,
-      downloadId: downloadId,
-      title: info.title,
-      fileName: `${fileName}.${extension}`,
-      outputPath: outputPath,
-      status: 'queued',
-      progress: 0,
-      url: url,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Store download info in memory (in a production app, use a database)
-    if (!global.activeDownloads) {
-      global.activeDownloads = {};
+    // Handle playlist download
+    if (isPlaylist) {
+      // Create a sanitized folder name for the playlist
+      const playlistTitle = (info.playlist_title || info.title || 'Playlist').replace(/[^\w\s]/gi, '');
+      const playlistFolder = path.join(downloadDir, `${playlistTitle}`);
+      
+      // Create the playlist folder
+      await fs.ensureDir(playlistFolder);
+      
+      // Prepare download options for the playlist
+      const downloadOptions = {
+        format: format,
+        videoFormat: videoFormat,
+        audioFormat: audioFormat,
+        quality: quality,
+        downloadId: downloadId,
+        title: info.playlist_title || info.title,
+        isPlaylist: true,
+        playlistTitle: info.playlist_title || info.title,
+        playlistCount: info.entries ? info.entries.length : 0,
+        outputPath: playlistFolder,
+        status: 'queued',
+        progress: 0,
+        url: url,
+        createdAt: new Date().toISOString(),
+        videos: []
+      };
+      
+      // Add information about each video in the playlist
+      if (info.entries && info.entries.length > 0) {
+        downloadOptions.videos = info.entries.map((entry, index) => {
+          const videoTitle = (entry.title || `Video ${index + 1}`).replace(/[^\w\s]/gi, '');
+          const extension = format === 'audio' ? audioFormat : videoFormat;
+          const fileName = `${videoTitle}.${extension}`;
+          
+          return {
+            index: index + 1,
+            videoId: entry.id,
+            title: entry.title || `Video ${index + 1}`,
+            fileName: fileName,
+            status: 'queued',
+            progress: 0
+          };
+        });
+      }
+      
+      // Store download info in memory
+      if (!global.activeDownloads) {
+        global.activeDownloads = {};
+      }
+      global.activeDownloads[downloadId] = downloadOptions;
+      
+      // Start the playlist download process in the background
+      setTimeout(() => {
+        startPlaylistDownloadProcess(downloadOptions);
+      }, 100);
+      
+      // Return the download ID and info to the client
+      return res.status(200).json({ 
+        error: false, 
+        message: 'Playlist download started',
+        downloadId: downloadId,
+        title: downloadOptions.title,
+        isPlaylist: true,
+        playlistCount: downloadOptions.playlistCount,
+        downloadOptions
+      });
+    } else {
+      // Handle single video download (existing code)
+      const videoTitle = info.title.replace(/[^\w\s]/gi, '');
+      const fileId = uuidv4();
+      const fileName = `${videoTitle}-${fileId}`;
+      
+      // Define the output file path
+      const extension = format === 'audio' ? audioFormat : videoFormat;
+      const outputPath = path.join(downloadDir, `${fileName}.${extension}`);
+      
+      // Prepare download options
+      const downloadOptions = {
+        format: format,
+        videoFormat: videoFormat,
+        audioFormat: audioFormat,
+        quality: quality,
+        downloadId: downloadId,
+        title: info.title,
+        fileName: `${fileName}.${extension}`,
+        outputPath: outputPath,
+        status: 'queued',
+        progress: 0,
+        url: url,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Store download info in memory
+      if (!global.activeDownloads) {
+        global.activeDownloads = {};
+      }
+      global.activeDownloads[downloadId] = downloadOptions;
+      
+      // Start the download process in the background
+      setTimeout(() => {
+        startDownloadProcess(downloadOptions);
+      }, 100);
+      
+      // Return the download ID and info to the client
+      return res.status(200).json({ 
+        error: false, 
+        message: 'Download started',
+        downloadId: downloadId,
+        title: info.title,
+        format: extension,
+        downloadOptions
+      });
     }
-    global.activeDownloads[downloadId] = downloadOptions;
-    
-    // Start the download process in the background
-    setTimeout(() => {
-      startDownloadProcess(downloadOptions);
-    }, 100);
-    
-    // Return the download ID and info to the client
-    return res.status(200).json({ 
-      error: false, 
-      message: 'Download started',
-      downloadId: downloadId,
-      title: info.title,
-      format: extension,
-      downloadOptions
-    });
   } catch (error) {
     console.error('Error processing video:', error);
     return res.status(500).json({ 
@@ -260,6 +397,173 @@ async function startDownloadProcess(options) {
     
   } catch (error) {
     console.error('Error starting download process:', error);
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].status = 'failed';
+      global.activeDownloads[downloadId].error = error.message;
+    }
+  }
+}
+
+// Function to start the playlist download process
+async function startPlaylistDownloadProcess(options) {
+  try {
+    const { url, format, quality, videoFormat, audioFormat, outputPath, downloadId, videos } = options;
+    
+    // Update download status
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].status = 'downloading';
+    }
+    
+    // Create yt-dlp arguments for playlist download
+    let ytdlpArgs = [];
+    
+    if (format === 'audio') {
+      // For audio downloads
+      ytdlpArgs = [
+        '-x',
+        '--audio-format', audioFormat,
+        '--audio-quality', '0',
+        '--yes-playlist',  // Download the playlist
+        '--no-warnings',
+        '--no-check-certificate',
+        '--prefer-free-formats',
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
+        // Output format: place each video in the playlist folder with its title
+        // Use a filename sanitization pattern to avoid invalid characters
+        '-o', path.join(outputPath, '%(title)s.%(ext)s').replace(/\\/g, '/'),
+        url
+      ];
+    } else {
+      // For video downloads
+      const height = parseInt(quality.replace('p', ''));
+      ytdlpArgs = [
+        '-f', `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`,
+        '--merge-output-format', videoFormat,
+        '--yes-playlist',  // Download the playlist
+        '--no-warnings',
+        '--no-check-certificate',
+        '--prefer-free-formats',
+        '--buffer-size', '64M',
+        '--concurrent-fragments', '8',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:"-x 16 -s 16 -k 1M"',
+        // Output format: place each video in the playlist folder with its title
+        // Use a filename sanitization pattern to avoid invalid characters
+        '-o', path.join(outputPath, '%(title)s.%(ext)s').replace(/\\/g, '/'),
+        url
+      ];
+    }
+    
+    // Add progress output for parsing
+    ytdlpArgs.push('--newline');
+    ytdlpArgs.push('--progress-template', '%(progress.downloaded_bytes)s/%(progress.total_bytes)s');
+    
+    console.log('Starting playlist download with command:', 'yt-dlp', ytdlpArgs.join(' '));
+    
+    // Start the download process
+    const { spawn } = require('child_process');
+    const ytdlpProcess = spawn('yt-dlp', ytdlpArgs);
+    
+    // Track overall progress
+    let totalProgress = 0;
+    let currentVideoIndex = 0;
+    let totalVideos = videos ? videos.length : 1;
+    
+    // Track download progress
+    ytdlpProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      console.log('yt-dlp output:', output);
+      
+      // Try to parse progress information
+      try {
+        // Check for video title to track which video is being downloaded
+        if (output.includes('[download]') && output.includes('Destination:')) {
+          currentVideoIndex++;
+          
+          // Update the status in the active downloads
+          if (global.activeDownloads && global.activeDownloads[downloadId] && 
+              global.activeDownloads[downloadId].videos && 
+              global.activeDownloads[downloadId].videos[currentVideoIndex - 1]) {
+            global.activeDownloads[downloadId].videos[currentVideoIndex - 1].status = 'downloading';
+          }
+          
+          console.log(`Downloading video ${currentVideoIndex} of ${totalVideos}`);
+        }
+        
+        // Parse progress information
+        if (output.includes('/')) {
+          const [downloaded, total] = output.trim().split('/').map(Number);
+          if (!isNaN(downloaded) && !isNaN(total) && total > 0) {
+            const progress = Math.round((downloaded / total) * 100);
+            
+            // Update current video progress
+            if (global.activeDownloads && global.activeDownloads[downloadId] && 
+                global.activeDownloads[downloadId].videos && 
+                global.activeDownloads[downloadId].videos[currentVideoIndex - 1]) {
+              global.activeDownloads[downloadId].videos[currentVideoIndex - 1].progress = progress;
+            }
+            
+            // Calculate overall progress based on completed videos + current progress
+            const overallProgress = Math.round(
+              ((currentVideoIndex - 1) * 100 + progress) / totalVideos
+            );
+            
+            // Update download progress
+            if (global.activeDownloads && global.activeDownloads[downloadId]) {
+              global.activeDownloads[downloadId].progress = overallProgress;
+              global.activeDownloads[downloadId].downloadedBytes = downloaded;
+              global.activeDownloads[downloadId].totalBytes = total;
+              global.activeDownloads[downloadId].currentVideo = currentVideoIndex;
+              global.activeDownloads[downloadId].totalVideos = totalVideos;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error parsing progress:', err);
+      }
+    });
+    
+    ytdlpProcess.stderr.on('data', (data) => {
+      console.error(`yt-dlp stderr: ${data}`);
+    });
+    
+    ytdlpProcess.on('close', (code) => {
+      if (code === 0) {
+        // Download completed successfully
+        if (global.activeDownloads && global.activeDownloads[downloadId]) {
+          global.activeDownloads[downloadId].status = 'completed';
+          global.activeDownloads[downloadId].progress = 100;
+          global.activeDownloads[downloadId].completedAt = new Date().toISOString();
+          
+          // Mark all videos as completed
+          if (global.activeDownloads[downloadId].videos) {
+            global.activeDownloads[downloadId].videos.forEach(video => {
+              video.status = 'completed';
+              video.progress = 100;
+            });
+          }
+        }
+        console.log(`Playlist download completed: ${outputPath}`);
+      } else {
+        // Download failed
+        if (global.activeDownloads && global.activeDownloads[downloadId]) {
+          global.activeDownloads[downloadId].status = 'failed';
+          global.activeDownloads[downloadId].error = `Process exited with code ${code}`;
+        }
+        console.error(`yt-dlp process exited with code ${code}`);
+      }
+    });
+    
+    // Store the process reference for potential cancellation
+    if (global.activeDownloads && global.activeDownloads[downloadId]) {
+      global.activeDownloads[downloadId].process = ytdlpProcess;
+    }
+    
+  } catch (error) {
+    console.error('Error starting playlist download process:', error);
     if (global.activeDownloads && global.activeDownloads[downloadId]) {
       global.activeDownloads[downloadId].status = 'failed';
       global.activeDownloads[downloadId].error = error.message;
@@ -500,6 +804,10 @@ exports.directDownload = async (req, res) => {
         url
       ];
     }
+    
+    // Add progress output for parsing
+    ytdlpArgs.push('--newline');
+    ytdlpArgs.push('--progress-template', '%(progress.downloaded_bytes)s/%(progress.total_bytes)s');
     
     // Start the download process and pipe directly to response
     const { spawn } = require('child_process');
