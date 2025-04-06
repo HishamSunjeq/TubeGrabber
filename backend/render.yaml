@@ -18,7 +18,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: "5000"
       - key: NPM_CONFIG_PACKAGE_MANAGER
         value: npm
     disk:
