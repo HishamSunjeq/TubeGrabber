@@ -2,8 +2,14 @@ services:
   - type: web
     name: tubegrabber-api
     env: node
-    buildCommand: chmod +x install-deps.sh && ./install-deps.sh && npm install
-    startCommand: npm start
+    rootDirectory: backend
+    buildCommand: |
+      apt-get update && \
+      curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+      chmod a+rx /usr/local/bin/yt-dlp && \
+      apt-get install -y aria2 ffmpeg && \
+      npm install
+    startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -14,4 +20,7 @@ services:
       - src/**
       - package.json
       - package-lock.json
-      - install-deps.sh
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
