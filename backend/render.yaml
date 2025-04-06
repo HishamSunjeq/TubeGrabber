@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tubegrabber-api
+    env: node
+    buildCommand: chmod +x install-deps.sh && ./install-deps.sh && npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    buildFilter:
+      paths:
+      - src/**
+      - package.json
+      - package-lock.json
+      - install-deps.sh
